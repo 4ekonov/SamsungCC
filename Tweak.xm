@@ -2,67 +2,61 @@
 #import <objc/runtime.h>
 #import <objc/message.h>
 
-static const void *kSCCKey = &kSCCKey;
-
-static BOOL SCCEnabled(void) {
-    NSUserDefaults *d = [[NSUserDefaults alloc] initWithSuiteName:@"com.samsungcc.tweak"];
-    id v = [d objectForKey:@"enabled"];
-    return v ? [v boolValue] : YES;
-}
-
 @interface CCUIModularControlCenterOverlayViewController : UIViewController
 @end
 
-static void SCCDismiss(UIViewController *vc) {
-    // пробуем несколько вариантов, т.к. сигнатуры отличаются между iOS 15/16/17
-    SEL s1 = NSSelectorFromString(@"dismissAnimated:");
-    if ([vc respondsToSelector:s1]) {
-        ((void (*)(id, SEL, BOOL))objc_msgSend)(vc, s1, YES);
-        return;
-    }
-    Class c = objc_getClass("SBControlCenterController");
-    id ctl = nil;
-    if ([c respondsToSelector:NSSelectorFromString(@"sharedInstance")])
-        ctl = ((id (*)(id, SEL))objc_msgSend)(c, NSSelectorFromString(@"sharedInstance"));
-    if ([ctl respondsToSelector:s1])
-        ((void (*)(id, SEL, BOOL))objc_msgSend)(ctl, s1, YES);
+static BOOL SCCDeviceUnlocked(void) {
+    Class c = objc_getClass("SBLockScreenManager");
+    SEL si = NSSelectorFromString(@"sharedInstance");
+    SEL sl = NSSelectorFromString(@"isUILocked");
+    if (![c respondsToSelector:si]) return NO;
+    id m = ((id (*)(id, SEL))objc_msgSend)(c, si);
+    if (![m respondsToSelector:sl]) return NO;
+    return !((BOOL (*)(id, SEL))objc_msgSend)(m, sl);
 }
+
+// --- запуск: создать окно с жестами ---
+%hook SpringBoard
+- (void)applicationDidFinishLaunching:(id)app {
+    %orig;
+    dispatch_async(dispatch_get_main_queue(), ^{ [[SCCManager shared] setup]; });
+}
+%end
+
+// --- системный пункт управления -> наша шторка (быстрые настройки) ---
+%hook SBControlCenterController
+- (void)presentAnimated:(BOOL)a {
+    if (SCCIsEnabled()) { [[SCCManager shared] openPage:1 animated:YES]; return; }
+    %orig;
+}
+- (void)presentAnimated:(BOOL)a completion:(id)c {
+    if (SCCIsEnabled()) { [[SCCManager shared] openPage:1 animated:YES]; return; }
+    %orig;
+}
+%end
 
 %hook CCUIModularControlCenterOverlayViewController
-
-- (void)viewDidLayoutSubviews {
-    %orig;
-    SCCView *scc = objc_getAssociatedObject(self, kSCCKey);
-    if (!SCCEnabled()) {
-        // твик выключен в настройках: вернуть оригинальный ЦУ
-        [scc removeFromSuperview];
-        for (UIView *v in self.view.subviews) v.hidden = NO;
-        return;
-    }
-    if (!scc) {
-        scc = [[SCCView alloc] initWithFrame:self.view.bounds];
-        scc.presenter = self;
-        __weak UIViewController *wself = self;
-        scc.dismissBlock = ^{ if (wself) SCCDismiss(wself); };
-        objc_setAssociatedObject(self, kSCCKey, scc, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    }
-    if (scc.superview != self.view) [self.view addSubview:scc];
-    scc.frame = self.view.bounds;
-    [self.view bringSubviewToFront:scc];
-    // прячем оригинальный контрольный центр
-    for (UIView *v in self.view.subviews) if (v != scc) v.hidden = YES;
-}
-
 - (void)viewWillAppear:(BOOL)animated {
     %orig;
-    SCCView *scc = objc_getAssociatedObject(self, kSCCKey);
-    [scc willShow];
+    self.view.hidden = SCCIsEnabled();
 }
+%end
 
-- (void)viewDidDisappear:(BOOL)animated {
+// --- системная шторка уведомлений -> наша (только на разблокированном экране, сразу после касания верха) ---
+%hook SBCoverSheetPresentationManager
+- (void)setCoverSheetPresented:(BOOL)p animated:(BOOL)a withCompletion:(id)c {
+    if (p && SCCIsEnabled() && SCCDeviceUnlocked() && [[SCCManager shared] topTouchRecent]) {
+        [[SCCManager shared] openPage:0 animated:YES];
+        %orig(NO, NO, c);
+        return;
+    }
     %orig;
-    SCCView *scc = objc_getAssociatedObject(self, kSCCKey);
-    [scc didHide];
 }
+%end
 
+// --- сбор уведомлений для нашей шторки ---
+%hook NCNotificationMasterList
+- (void)insertNotificationRequest:(id)r { %orig; SCCNotifInsert(r, self); }
+- (void)modifyNotificationRequest:(id)r { %orig; SCCNotifInsert(r, self); }
+- (void)removeNotificationRequest:(id)r { %orig; SCCNotifRemove(r); }
 %end

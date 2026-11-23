@@ -1,11 +1,31 @@
 #import <UIKit/UIKit.h>
 
+BOOL SCCIsEnabled(void);
+void SCCNotifInsert(id request, id master);
+void SCCNotifRemove(id request);
+
+/// Шторка (две страницы: 0 = уведомления, 1 = быстрые настройки)
 @interface SCCView : UIView
-/// VC, из которого показываются алерты (Add / Power / Reset)
 @property (nonatomic, weak) UIViewController *presenter;
-/// Закрыть контрольный центр
-@property (nonatomic, copy) void (^dismissBlock)(void);
+@property (nonatomic, copy) void (^closeBlock)(void);
+@property (nonatomic, readonly) NSInteger currentPage;
+- (void)prepareForPage:(NSInteger)page;
+- (void)showPage:(NSInteger)page animated:(BOOL)animated;
+- (void)setProgress:(CGFloat)p;
+- (void)animateOpen:(BOOL)open velocity:(CGFloat)v completion:(void (^)(void))completion;
 - (void)dismissCC;
-- (void)willShow;   // обновить состояния
-- (void)didHide;    // выйти из режима редактирования
+- (void)willShow;
+- (void)didHide;
+- (void)reloadNotifications;
+@end
+
+/// Управляет окном сверху и жестами (слева сверху = уведомления, справа сверху = быстрые настройки)
+@interface SCCManager : NSObject
+@property (nonatomic, readonly) BOOL isOpen;
++ (instancetype)shared;
+- (void)setup;
+- (void)openPage:(NSInteger)page animated:(BOOL)animated;
+- (void)closeAnimated:(BOOL)animated;
+- (void)notesChanged;
+- (BOOL)topTouchRecent;
 @end
