@@ -9,7 +9,7 @@
 #define CALL_V(o, s)        (((void (*)(id, SEL))objc_msgSend)((o), sel_registerName(s)))
 #define HAS(o, s)           ([(o) respondsToSelector:sel_registerName(s)])
 
-static NSString *const kLayoutKey = @"SCC.layout.v1";
+static NSString *const kLayoutKey = @"SCC.layout.v2";
 
 #pragma mark - Каталог плиток
 
@@ -26,6 +26,7 @@ static NSDictionary *Cat(void) {
         c = @{
             @"wifi":       @{@"n":@"Wi-Fi", @"i":@"wifi", @"k":@"t", @"p":@"prefs:root=WIFI", @"s":@[@"2x1", @"1x1", @"2x2"]},
             @"bluetooth":  @{@"n":@"Bluetooth", @"i":@"bluetooth", @"k":@"t", @"p":@"prefs:root=Bluetooth", @"s":@[@"2x1", @"1x1", @"2x2"]},
+            @"connect":    @{@"n":@"Connectivity", @"i":@"wifi", @"k":@"g", @"s":@[@"2x2"]},
             @"airplane":   E(@"Airplane", @"airplane", @"t", @"1x1", @"2x1"),
             @"cellular":   @{@"n":@"Mobile data", @"i":@"arrow.up.arrow.down", @"k":@"t", @"o":@"prefs:root=MOBILE_DATA_SETTINGS_ID", @"s":@[@"1x1", @"2x1"]},
             @"flashlight": E(@"Flashlight", @"flashlight.on.fill", @"t", @"1x1", @"2x1"),
@@ -35,7 +36,7 @@ static NSDictionary *Cat(void) {
             @"mute":       E(@"Mute", @"speaker.slash.fill", @"t", @"1x1", @"2x1"),
             @"location":   EO(@"Location", @"mappin.and.ellipse", @"t", @"prefs:root=Privacy&path=LOCATION", @"1x1", @"2x1"),
             @"modes":      EO(@"Modes", @"bed.double.fill", @"t", @"prefs:root=DO_NOT_DISTURB", @"2x1", @"1x1"),
-            @"smartview":  EO(@"Smart View", @"rectangle.on.rectangle", @"t", @"prefs:root=DISPLAY", @"2x1", @"1x1"),
+            @"smartview":  @{@"n":@"Smart View", @"i":@"rectangle.on.rectangle", @"k":@"t", @"o":@"prefs:root=DISPLAY", @"sub":@"Mirror screen", @"s":@[@"2x1", @"1x1"]},
             @"nearby":     EO(@"Nearby devices", @"dot.radiowaves.left.and.right", @"t", @"prefs:root=Bluetooth", @"2x1", @"1x1"),
             @"camera":     EO(@"Camera", @"camera.fill", @"t", @"com.apple.camera", @"1x1", @"2x1"),
             @"calculator": EO(@"Calculator", @"plus.forwardslash.minus", @"t", @"com.apple.calculator", @"1x1", @"2x1"),
@@ -43,22 +44,20 @@ static NSDictionary *Cat(void) {
             @"notes":      EO(@"Notes", @"note.text", @"t", @"com.apple.mobilenotes", @"1x1", @"2x1"),
             @"magnifier":  EO(@"Magnifier", @"magnifyingglass", @"t", @"com.apple.Magnifier", @"1x1", @"2x1"),
             @"settings":   EO(@"Settings", @"gearshape.fill", @"t", @"com.apple.Preferences", @"1x1", @"2x1"),
-            @"brightness": E(@"Brightness", @"sun.max.fill", @"s", @"4x1", @"3x1", @"2x1"),
-            @"volume":     E(@"Volume", @"speaker.wave.2.fill", @"s", @"4x1", @"3x1", @"2x1"),
-            @"media":      E(@"Media", @"music.note", @"m", @"4x2", @"4x1", @"2x2"),
+            @"brightness": E(@"Brightness", @"sun.max.fill", @"s", @"1x3", @"3x1", @"4x1", @"2x1"),
+            @"volume":     E(@"Volume", @"speaker.wave.2.fill", @"s", @"1x3", @"3x1", @"4x1", @"2x1"),
+            @"media":      E(@"Media", @"music.note", @"m", @"2x2", @"4x2", @"4x1"),
         };
     });
     return c;
 }
 
 static NSArray *DefaultLayout(void) {
-    return @[@"wifi:2x1", @"bluetooth:2x1",
-             @"airplane:1x1", @"flashlight:1x1", @"cellular:1x1", @"rotation:1x1",
-             @"brightness:3x1", @"dark:1x1",
-             @"volume:3x1", @"mute:1x1",
-             @"media:4x2",
+    return @[@"connect:2x2", @"media:2x2",
+             @"rotation:1x1", @"location:1x1", @"brightness:1x3", @"volume:1x3",
              @"modes:2x1", @"smartview:2x1",
-             @"lowpower:1x1", @"camera:1x1", @"calculator:1x1", @"timer:1x1"];
+             @"flashlight:1x1", @"magnifier:1x1", @"lowpower:1x1", @"camera:1x1",
+             @"calculator:1x1", @"timer:1x1", @"notes:1x1", @"settings:1x1"];
 }
 
 static BOOL ParseItem(NSString *s, NSString **tid, int *w, int *h) {
@@ -195,6 +194,18 @@ BOOL SCCIsEnabled(void) {
     return v ? [v boolValue] : YES;
 }
 
+void SCCLog(NSString *msg) {
+    NSString *path = @"/var/mobile/SamsungCC.log";
+    NSDictionary *at = [[NSFileManager defaultManager] attributesOfItemAtPath:path error:nil];
+    if ([at fileSize] > 200000) return;
+    NSData *line = [[msg stringByAppendingString:@"\n"] dataUsingEncoding:NSUTF8StringEncoding];
+    NSFileHandle *h = [NSFileHandle fileHandleForWritingAtPath:path];
+    if (!h) { [line writeToFile:path atomically:NO]; return; }
+    [h seekToEndOfFile];
+    [h writeData:line];
+    [h closeFile];
+}
+
 static NSUserDefaults *Prefs(void) {
     return [[NSUserDefaults alloc] initWithSuiteName:@"com.samsungcc.tweak"];
 }
@@ -261,6 +272,46 @@ static void RemoveFromSystem(SCCNote *n) {
 
 #pragma mark - Плитка
 
+static UIColor *GlassFill(void)  { return [UIColor colorWithRed:0.50 green:0.52 blue:0.56 alpha:0.36]; }
+static UIColor *GlassDeep(void)  { return [UIColor colorWithRed:0.36 green:0.38 blue:0.43 alpha:0.30]; }
+static UIColor *Ink(void)        { return [UIColor colorWithWhite:0.16 alpha:1]; }
+static UIColor *OutlineC(void)   { return [UIColor colorWithWhite:1 alpha:0.55]; }
+static UIColor *ActiveFill(void) { return [UIColor colorWithWhite:1 alpha:0.97]; }
+
+// У Bluetooth нет системного SF Symbol, поэтому рисуем руну сами
+static UIImage *BTImage(CGFloat sz) {
+    UIGraphicsImageRenderer *r = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(sz, sz)];
+    UIImage *img = [r imageWithActions:^(UIGraphicsImageRendererContext *ctx) {
+        UIBezierPath *p = [UIBezierPath bezierPath];
+        CGFloat s = sz;
+        [p moveToPoint:CGPointMake(0.27 * s, 0.30 * s)];
+        [p addLineToPoint:CGPointMake(0.73 * s, 0.70 * s)];
+        [p addLineToPoint:CGPointMake(0.50 * s, 0.92 * s)];
+        [p addLineToPoint:CGPointMake(0.50 * s, 0.08 * s)];
+        [p addLineToPoint:CGPointMake(0.73 * s, 0.30 * s)];
+        [p addLineToPoint:CGPointMake(0.27 * s, 0.70 * s)];
+        p.lineWidth = s * 0.085;
+        p.lineCapStyle = kCGLineCapRound;
+        p.lineJoinStyle = kCGLineJoinRound;
+        [[UIColor blackColor] setStroke];
+        [p stroke];
+    }];
+    return [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+}
+
+static UIImage *Icon(NSString *name, CGFloat pt) {
+    if ([name isEqual:@"bluetooth"]) return BTImage(pt);
+    UIImageSymbolConfiguration *cfg = [UIImageSymbolConfiguration configurationWithPointSize:pt weight:UIImageSymbolWeightRegular];
+    UIImage *i = [UIImage systemImageNamed:name withConfiguration:cfg];
+    if (!i) i = [UIImage systemImageNamed:@"circle" withConfiguration:cfg];
+    return [i imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+}
+
+static NSString *TimeStr(double t) {
+    if (t < 0 || isnan(t)) t = 0;
+    return [NSString stringWithFormat:@"%02d:%02d", (int)t / 60, (int)t % 60];
+}
+
 @class SCCView;
 
 @interface SCCTile : UIView <UIGestureRecognizerDelegate>
@@ -279,65 +330,106 @@ static void RemoveFromSystem(SCCNote *n) {
 @end
 
 @implementation SCCTile {
-    UIView *_bg, *_fill, *_plate;
+    UIView *_bg, *_plate, *_fill, *_edge, *_artDim, *_prog, *_progFill;
     UIImageView *_icon, *_art;
-    UILabel *_label, *_sub, *_title, *_artist;
-    UIButton *_prev, *_play, *_next;
-    CAShapeLayer *_dash;
+    UILabel *_label, *_sub, *_title, *_artist, *_t0, *_t1;
+    UIButton *_prev, *_play, *_next, *_comp;
+    NSMutableArray<UIView *> *_gc;
+    NSMutableArray<UIImageView *> *_gi;
     float _val;
-    BOOL _playing, _on;
+    CGFloat _frac;
+    BOOL _playing, _on, _hasArt, _interacting;
+    double _elapsed, _duration;
+    NSDate *_stamp;
 }
 
 - (NSDictionary *)info { return Cat()[_tid]; }
 - (NSString *)kind { return self.info[@"k"]; }
+- (BOOL)isVertical { return [self.kind isEqual:@"s"] && _w == 1 && _h >= 2; }
 
 - (instancetype)initWithId:(NSString *)tid w:(int)w h:(int)h host:(SCCView *)host {
     self = [super initWithFrame:CGRectZero];
     _tid = tid; _w = w; _h = h; _host = host;
     NSString *k = self.kind;
+    BOOL isT = [k isEqual:@"t"], isS = [k isEqual:@"s"], isM = [k isEqual:@"m"], isG = [k isEqual:@"g"];
 
     _bg = [UIView new];
     _bg.layer.masksToBounds = YES;
+    _bg.layer.borderWidth = 1;
+    _bg.layer.borderColor = OutlineC().CGColor;
     [self addSubview:_bg];
 
-    if ([k isEqual:@"s"]) {
+    if (isS) {
         _fill = [UIView new];
-        _fill.backgroundColor = [UIColor colorWithWhite:1 alpha:0.96];
+        _fill.backgroundColor = ActiveFill();
         [_bg addSubview:_fill];
+    }
+    if (isM) {
+        _art = [UIImageView new];
+        _art.contentMode = UIViewContentModeScaleAspectFill;
+        _art.clipsToBounds = YES;
+        _art.hidden = YES;
+        [_bg addSubview:_art];
+        _artDim = [UIView new];
+        _artDim.backgroundColor = [UIColor colorWithWhite:0 alpha:0.30];
+        _artDim.hidden = YES;
+        [_bg addSubview:_artDim];
     }
 
     _plate = [UIView new];
     _plate.layer.masksToBounds = YES;
     [self addSubview:_plate];
-
     _icon = [UIImageView new];
     _icon.contentMode = UIViewContentModeScaleAspectFit;
     [self addSubview:_icon];
-
     _label = [UILabel new];
     _label.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
     [self addSubview:_label];
     _sub = [UILabel new];
-    _sub.font = [UIFont systemFontOfSize:12.5 weight:UIFontWeightRegular];
+    _sub.font = [UIFont systemFontOfSize:12.5];
     [self addSubview:_sub];
+    if (!isT) { _plate.hidden = YES; _label.hidden = YES; _sub.hidden = YES; }
+    if (!isT && !isS) _icon.hidden = YES;
 
-    if ([k isEqual:@"m"]) {
-        _art = [UIImageView new];
-        _art.contentMode = UIViewContentModeScaleAspectFill;
-        _art.alpha = 0.45;
-        _art.clipsToBounds = YES;
-        [_bg addSubview:_art];
+    if (isS) {
+        _comp = [UIButton buttonWithType:UIButtonTypeCustom];
+        _comp.layer.masksToBounds = YES;
+        [_comp addTarget:self action:@selector(compTapped) forControlEvents:UIControlEventTouchUpInside];
+        [self addSubview:_comp];
+    }
+
+    if (isM) {
         _title = [UILabel new];
-        _title.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
-        _title.textColor = [UIColor blackColor];
+        _title.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
         _artist = [UILabel new];
-        _artist.font = [UIFont systemFontOfSize:13];
-        _artist.textColor = [UIColor colorWithWhite:0.2 alpha:1];
-        [self addSubview:_title];
-        [self addSubview:_artist];
-        _prev = [self mediaBtn:@"backward.fill" action:@selector(prevTapped)];
-        _play = [self mediaBtn:@"play.fill" action:@selector(playTapped)];
-        _next = [self mediaBtn:@"forward.fill" action:@selector(nextTapped)];
+        _artist.font = [UIFont systemFontOfSize:12.5];
+        _t0 = [UILabel new]; _t0.font = [UIFont monospacedDigitSystemFontOfSize:9.5 weight:UIFontWeightRegular];
+        _t1 = [UILabel new]; _t1.font = [UIFont monospacedDigitSystemFontOfSize:9.5 weight:UIFontWeightRegular];
+        _t1.textAlignment = NSTextAlignmentRight;
+        _prog = [UIView new]; _prog.layer.cornerRadius = 1.5;
+        _progFill = [UIView new]; _progFill.layer.cornerRadius = 1.5;
+        [_prog addSubview:_progFill];
+        for (UIView *v in @[_title, _artist, _t0, _t1, _prog]) [self addSubview:v];
+        _prev = [self mediaBtn:@selector(prevTapped)];
+        _play = [self mediaBtn:@selector(playTapped)];
+        _next = [self mediaBtn:@selector(nextTapped)];
+    }
+
+    if (isG) {
+        _gc = [NSMutableArray new];
+        _gi = [NSMutableArray new];
+        for (int i = 0; i < 4; i++) {
+            UIView *c = [UIView new];
+            c.layer.masksToBounds = YES;
+            c.layer.borderWidth = 1;
+            c.layer.borderColor = OutlineC().CGColor;
+            [self addSubview:c];
+            UIImageView *iv = [UIImageView new];
+            iv.contentMode = UIViewContentModeScaleAspectFit;
+            [self addSubview:iv];
+            [_gc addObject:c];
+            [_gi addObject:iv];
+        }
     }
 
     UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(tapped:)];
@@ -347,7 +439,7 @@ static void RemoveFromSystem(SCCNote *n) {
     open.minimumPressDuration = 0.5;
     open.delegate = self;
     [self addGestureRecognizer:open];
-    if ([k isEqual:@"s"]) {
+    if (isS) {
         UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(slide:)];
         pan.delegate = self;
         [self addGestureRecognizer:pan];
@@ -357,41 +449,41 @@ static void RemoveFromSystem(SCCNote *n) {
     _dragLP.delegate = self;
     [self addGestureRecognizer:_dragLP];
 
-    _dash = [CAShapeLayer layer];
-    _dash.fillColor = nil;
-    _dash.strokeColor = [UIColor colorWithWhite:0.15 alpha:0.75].CGColor;
-    _dash.lineWidth = 1.5;
-    _dash.lineDashPattern = @[@6, @4];
-    _dash.hidden = YES;
-    [self.layer addSublayer:_dash];
+    // оформление режима редактирования
+    _edge = [UIView new];
+    _edge.userInteractionEnabled = NO;
+    _edge.layer.borderWidth = 1.5;
+    _edge.layer.borderColor = [Ink() colorWithAlphaComponent:0.55].CGColor;
+    _edge.alpha = 0;
+    [self addSubview:_edge];
 
     _minus = [UIButton buttonWithType:UIButtonTypeSystem];
-    _minus.backgroundColor = [UIColor colorWithWhite:0.12 alpha:0.92];
+    _minus.backgroundColor = [UIColor colorWithWhite:0.14 alpha:0.94];
     _minus.tintColor = [UIColor whiteColor];
     [_minus setImage:[UIImage systemImageNamed:@"minus" withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:11 weight:UIImageSymbolWeightBold]] forState:UIControlStateNormal];
     _minus.layer.cornerRadius = 13;
-    _minus.hidden = YES;
+    _minus.alpha = 0;
+    _minus.userInteractionEnabled = NO;
     [self addSubview:_minus];
 
     _handle = [UIView new];
-    _handle.backgroundColor = [UIColor colorWithWhite:0.12 alpha:0.92];
+    _handle.backgroundColor = [UIColor colorWithWhite:0.14 alpha:0.94];
     _handle.layer.cornerRadius = 14;
     UIImageView *hi = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"arrow.up.left.and.arrow.down.right" withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:11 weight:UIImageSymbolWeightBold]]];
     hi.tintColor = [UIColor whiteColor];
     hi.frame = CGRectMake(7, 7, 14, 14);
     hi.contentMode = UIViewContentModeScaleAspectFit;
     [_handle addSubview:hi];
-    _handle.hidden = YES;
+    _handle.alpha = 0;
+    _handle.userInteractionEnabled = NO;
     [self addSubview:_handle];
 
     [self refresh];
     return self;
 }
 
-- (UIButton *)mediaBtn:(NSString *)sym action:(SEL)a {
-    UIButton *b = [UIButton buttonWithType:UIButtonTypeSystem];
-    [b setImage:[UIImage systemImageNamed:sym withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:20 weight:UIImageSymbolWeightBold]] forState:UIControlStateNormal];
-    b.tintColor = [UIColor blackColor];
+- (UIButton *)mediaBtn:(SEL)a {
+    UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
     [b addTarget:self action:a forControlEvents:UIControlEventTouchUpInside];
     [self addSubview:b];
     return b;
@@ -400,17 +492,23 @@ static void RemoveFromSystem(SCCNote *n) {
 - (BOOL)pointInside:(CGPoint)p withEvent:(UIEvent *)e {
     if (_editing) {
         if (CGRectContainsPoint(CGRectInset(_minus.frame, -6, -6), p)) return YES;
-        if (!_handle.hidden && CGRectContainsPoint(CGRectInset(_handle.frame, -8, -8), p)) return YES;
+        if (_handle.alpha > 0.5 && CGRectContainsPoint(CGRectInset(_handle.frame, -8, -8), p)) return YES;
     }
     return [super pointInside:p withEvent:e];
 }
 
 - (void)setEditing:(BOOL)e {
     _editing = e;
-    _dash.hidden = !e;
-    _minus.hidden = !e;
-    _handle.hidden = !(e && [self.info[@"s"] count] > 1);
+    BOOL canResize = [self.info[@"s"] count] > 1;
+    _minus.userInteractionEnabled = e;
+    _handle.userInteractionEnabled = e && canResize;
     _prev.userInteractionEnabled = _play.userInteractionEnabled = _next.userInteractionEnabled = !e;
+    _comp.userInteractionEnabled = !e;
+    [UIView animateWithDuration:0.25 animations:^{
+        self->_edge.alpha = e ? 1 : 0;
+        self->_minus.alpha = e ? 1 : 0;
+        self->_handle.alpha = (e && canResize) ? 1 : 0;
+    }];
     [self.layer removeAnimationForKey:@"wiggle"];
     if (e) {
         CAKeyframeAnimation *a = [CAKeyframeAnimation animationWithKeyPath:@"transform.rotation.z"];
@@ -421,26 +519,37 @@ static void RemoveFromSystem(SCCNote *n) {
     }
 }
 
+- (CGRect)trackRect {
+    CGFloat W = self.bounds.size.width, H = self.bounds.size.height;
+    CGFloat compD = W - 10;
+    return CGRectMake(5, 5, compD, MAX(10, H - compD - 16));
+}
+
 - (void)layoutSubviews {
     [super layoutSubviews];
     CGFloat W = self.bounds.size.width, H = self.bounds.size.height;
-    _bg.frame = self.bounds;
-    _bg.layer.cornerRadius = (_h == 1) ? H / 2 : 32;
     NSString *k = self.kind;
+    BOOL vert = [self isVertical];
+    CGFloat R;
+
+    _bg.frame = self.bounds;
 
     if ([k isEqual:@"t"]) {
         BOOL round = (_w == 1 && _h == 1);
         BOOL wide = (_h == 1 && _w >= 2);
-        _plate.hidden = round;
-        _label.hidden = _sub.hidden = round;
+        R = (_h == 1) ? H / 2 : 34;
+        CGFloat a = round ? 0 : 1;
+        _plate.alpha = _label.alpha = _sub.alpha = a;
         if (round) {
             _icon.frame = CGRectMake((W - 26) / 2, (H - 26) / 2, 26, 26);
+            _plate.frame = CGRectMake(W / 2 - 1, H / 2 - 1, 2, 2);
+            _plate.layer.cornerRadius = 1;
         } else if (wide) {
             CGFloat d = H - 16;
             _plate.frame = CGRectMake(8, 8, d, d);
             _plate.layer.cornerRadius = d / 2;
             _icon.frame = CGRectMake(8 + (d - 22) / 2, 8 + (d - 22) / 2, 22, 22);
-            CGFloat x = 8 + d + 10, tw = W - x - 12;
+            CGFloat x = 8 + d + 10, tw = MAX(0, W - x - 12);
             _label.numberOfLines = 1;
             if (_sub.text.length) {
                 _label.frame = CGRectMake(x, H / 2 - 20, tw, 20);
@@ -454,36 +563,74 @@ static void RemoveFromSystem(SCCNote *n) {
             _icon.frame = CGRectMake(14 + 12, 14 + 12, 22, 22);
             _label.numberOfLines = 2;
             if (_sub.text.length) {
-                _label.frame = CGRectMake(16, H - 58, W - 32, 22);
-                _sub.frame = CGRectMake(16, H - 36, W - 32, 18);
+                _label.frame = CGRectMake(16, H - 58, MAX(0, W - 32), 22);
+                _sub.frame = CGRectMake(16, H - 36, MAX(0, W - 32), 18);
             } else {
-                _label.frame = CGRectMake(16, H - 50, W - 32, 36);
+                _label.frame = CGRectMake(16, H - 50, MAX(0, W - 32), 36);
             }
         }
-    } else if ([k isEqual:@"s"]) {
-        _plate.hidden = YES; _label.hidden = _sub.hidden = YES;
-        _icon.frame = CGRectMake(18, (H - 26) / 2, 26, 26);
-        _fill.frame = CGRectMake(0, 0, MAX(H, W * _val), H);
-    } else {
-        _plate.hidden = YES; _label.hidden = _sub.hidden = YES; _icon.hidden = YES;
-        _art.frame = _bg.bounds;
-        BOOL big = _h >= 2;
-        CGFloat pad = 18;
-        if (big) {
-            _title.frame = CGRectMake(pad, 16, W - 2 * pad, 22);
-            _artist.frame = CGRectMake(pad, 38, W - 2 * pad, 18);
-        } else {
-            _title.frame = CGRectMake(pad, 12, W / 2 - pad, 22);
-            _artist.frame = CGRectMake(pad, 34, W / 2 - pad, 18);
+    } else if ([k isEqual:@"g"]) {
+        R = 36;
+        CGFloat pad = 12;
+        CGFloat d = MAX(10, MIN((W - 3 * pad) / 2, (H - 3 * pad) / 2));
+        CGFloat x0 = (W - (2 * d + pad)) / 2, y0 = (H - (2 * d + pad)) / 2;
+        for (int i = 0; i < 4; i++) {
+            CGFloat x = x0 + (i % 2) * (d + pad), y = y0 + (i / 2) * (d + pad);
+            _gc[i].frame = CGRectMake(x, y, d, d);
+            _gc[i].layer.cornerRadius = d / 2;
+            _gi[i].frame = CGRectMake(x + (d - 24) / 2, y + (d - 24) / 2, 24, 24);
         }
-        CGFloat bw = 44, by = big ? H - 56 : (H - bw) / 2, cx = big ? W / 2 : W * 0.75;
-        _prev.frame = CGRectMake(cx - bw * 1.5, by, bw, bw);
-        _play.frame = CGRectMake(cx - bw / 2, by, bw, bw);
-        _next.frame = CGRectMake(cx + bw / 2, by, bw, bw);
+    } else if ([k isEqual:@"s"]) {
+        if (vert) {
+            R = W / 2;
+            CGRect tr = [self trackRect];
+            CGFloat fh = MAX(tr.size.width, tr.size.height * _val);
+            _fill.frame = CGRectMake(tr.origin.x, CGRectGetMaxY(tr) - fh, tr.size.width, fh);
+            _fill.layer.cornerRadius = tr.size.width / 2;
+            _icon.frame = CGRectMake(tr.origin.x + (tr.size.width - 26) / 2, CGRectGetMaxY(tr) - tr.size.width + (tr.size.width - 26) / 2, 26, 26);
+            CGFloat cd = W - 10;
+            _comp.frame = CGRectMake(5, H - cd - 5, cd, cd);
+            _comp.layer.cornerRadius = cd / 2;
+            _comp.alpha = 1;
+        } else {
+            R = H / 2;
+            _fill.frame = CGRectMake(0, 0, MAX(H, W * _val), H);
+            _fill.layer.cornerRadius = 0;
+            _icon.frame = CGRectMake(18, (H - 26) / 2, 26, 26);
+            _comp.alpha = 0;
+        }
+    } else { // media
+        BOOL big = _h >= 2;
+        R = big ? 30 : H / 2;
+        _art.frame = _artDim.frame = _bg.bounds;
+        CGFloat pad = 16;
+        if (big) {
+            _title.frame = CGRectMake(pad, 12, MAX(0, W - 2 * pad), 20);
+            _artist.frame = CGRectMake(pad, 32, MAX(0, W - 2 * pad), 16);
+            CGFloat py = 60;
+            _prog.frame = CGRectMake(pad, py, MAX(0, W - 2 * pad), 3);
+            _progFill.frame = CGRectMake(0, 0, _prog.bounds.size.width * _frac, 3);
+            _t0.frame = CGRectMake(pad, py + 6, 50, 12);
+            _t1.frame = CGRectMake(W - pad - 50, py + 6, 50, 12);
+            _t0.alpha = _t1.alpha = _prog.alpha = 1;
+            CGFloat bw = 44, by = H - bw - 8;
+            _prev.frame = CGRectMake(W / 2 - bw * 1.5, by, bw, bw);
+            _play.frame = CGRectMake(W / 2 - bw / 2, by, bw, bw);
+            _next.frame = CGRectMake(W / 2 + bw / 2, by, bw, bw);
+        } else {
+            _title.frame = CGRectMake(pad + 4, 10, MAX(0, W / 2 - pad), 20);
+            _artist.frame = CGRectMake(pad + 4, 32, MAX(0, W / 2 - pad), 16);
+            _t0.alpha = _t1.alpha = _prog.alpha = 0;
+            CGFloat bw = 44, by = (H - bw) / 2, cx = W * 0.74;
+            _prev.frame = CGRectMake(cx - bw * 1.5, by, bw, bw);
+            _play.frame = CGRectMake(cx - bw / 2, by, bw, bw);
+            _next.frame = CGRectMake(cx + bw / 2, by, bw, bw);
+        }
     }
 
-    _dash.frame = self.bounds;
-    _dash.path = [UIBezierPath bezierPathWithRoundedRect:CGRectInset(self.bounds, 1, 1) cornerRadius:_bg.layer.cornerRadius].CGPath;
+    _bg.layer.cornerRadius = R;
+    _edge.frame = self.bounds;
+    _edge.layer.cornerRadius = R;
     _minus.frame = CGRectMake(-6, -6, 26, 26);
     _handle.frame = CGRectMake(W - 22, H - 22, 28, 28);
 }
@@ -491,53 +638,96 @@ static void RemoveFromSystem(SCCNote *n) {
 - (void)refresh {
     NSDictionary *i = self.info;
     NSString *k = self.kind;
-    UIColor *ink = [UIColor colorWithWhite:0.12 alpha:1];
-    UIColor *glass = [UIColor colorWithWhite:1 alpha:0.30];
-    UIColor *white = [UIColor colorWithWhite:1 alpha:0.96];
-    _icon.image = [UIImage systemImageNamed:i[@"i"] withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:22 weight:UIImageSymbolWeightMedium]];
-    _label.text = i[@"n"];
-    _label.textColor = ink;
-    _sub.textColor = [UIColor colorWithWhite:0.25 alpha:0.9];
 
     if ([k isEqual:@"t"]) {
         BOOL stateful = (i[@"o"] == nil);
         _on = stateful && TileState(_tid);
         BOOL round = (_w == 1 && _h == 1);
-        _bg.backgroundColor = _on ? white : glass;
+        _icon.image = Icon(i[@"i"], 22);
+        _label.text = i[@"n"];
+        _label.textColor = Ink();
+        _sub.textColor = [UIColor colorWithWhite:0.22 alpha:0.85];
+        _bg.backgroundColor = _on ? ActiveFill() : GlassFill();
         if (round) {
-            _icon.tintColor = ink;
+            _icon.tintColor = Ink();
         } else {
-            _plate.backgroundColor = _on ? [UIColor colorWithWhite:0.12 alpha:0.92] : [UIColor colorWithWhite:1 alpha:0.38];
-            _icon.tintColor = _on ? [UIColor whiteColor] : ink;
+            _plate.backgroundColor = _on ? [UIColor colorWithWhite:0.16 alpha:0.92] : GlassDeep();
+            _icon.tintColor = _on ? [UIColor whiteColor] : Ink();
         }
-        NSString *st = stateful ? (_on ? @"On" : @"Off") : nil;
+        NSString *st = i[@"sub"] ?: (stateful ? (_on ? @"On" : @"Off") : nil);
         if (![st isEqual:_sub.text]) { _sub.text = st; [self setNeedsLayout]; }
+    } else if ([k isEqual:@"g"]) {
+        _bg.backgroundColor = GlassFill();
+        NSArray *ids = @[@"wifi", @"bluetooth", @"airplane", @"cellular"];
+        for (int n = 0; n < 4; n++) {
+            BOOL on = (n < 3) && TileState(ids[n]);
+            _gc[n].backgroundColor = on ? ActiveFill() : GlassDeep();
+            _gi[n].image = Icon(Cat()[ids[n]][@"i"], 24);
+            _gi[n].tintColor = Ink();
+        }
     } else if ([k isEqual:@"s"]) {
-        _bg.backgroundColor = glass;
-        _icon.tintColor = ink;
-        _val = [_tid isEqual:@"brightness"] ? [UIScreen mainScreen].brightness : GetVolume();
+        _bg.backgroundColor = GlassFill();
+        _icon.image = Icon(i[@"i"], 22);
+        _icon.tintColor = Ink();
+        if (!_interacting) _val = [_tid isEqual:@"brightness"] ? [UIScreen mainScreen].brightness : GetVolume();
+        if ([self isVertical]) {
+            BOOL bright = [_tid isEqual:@"brightness"];
+            BOOL on = bright ? TileState(@"dark") : TileState(@"mute");
+            NSString *sym = bright ? @"moon.fill" : (on ? @"speaker.slash.fill" : @"speaker.wave.2.fill");
+            [_comp setImage:Icon(sym, 20) forState:UIControlStateNormal];
+            _comp.tintColor = Ink();
+            _comp.backgroundColor = on ? ActiveFill() : GlassDeep();
+        }
         [self setNeedsLayout];
-    } else {
-        _bg.backgroundColor = glass;
+    } else { // media
+        _bg.backgroundColor = GlassFill();
+        [self applyMediaColors];
         MRInit();
         if (MRGetInfo) {
             __weak SCCTile *ws = self;
             MRGetInfo(dispatch_get_main_queue(), ^(CFDictionaryRef d) {
                 SCCTile *s = ws;
                 if (!s) return;
-                NSDictionary *n = (__bridge NSDictionary *)d;
+                NSDictionary *n = d ? (__bridge NSDictionary *)d : nil;
                 NSString *t = n[@"kMRMediaRemoteNowPlayingInfoTitle"];
                 NSString *a = n[@"kMRMediaRemoteNowPlayingInfoArtist"];
                 NSData *art = n[@"kMRMediaRemoteNowPlayingInfoArtworkData"];
                 s->_title.text = t.length ? t : @"Not playing";
                 s->_artist.text = a ?: @"";
-                s->_art.image = art ? [UIImage imageWithData:art] : nil;
+                UIImage *ai = art ? [UIImage imageWithData:art] : nil;
+                s->_art.image = ai;
+                s->_hasArt = (ai != nil);
+                s->_art.hidden = s->_artDim.hidden = !s->_hasArt;
                 s->_playing = [n[@"kMRMediaRemoteNowPlayingInfoPlaybackRate"] floatValue] > 0;
-                UIImageSymbolConfiguration *cfg = [UIImageSymbolConfiguration configurationWithPointSize:22 weight:UIImageSymbolWeightBold];
-                [s->_play setImage:[UIImage systemImageNamed:s->_playing ? @"pause.fill" : @"play.fill" withConfiguration:cfg] forState:UIControlStateNormal];
+                s->_elapsed = [n[@"kMRMediaRemoteNowPlayingInfoElapsedTime"] doubleValue];
+                s->_duration = [n[@"kMRMediaRemoteNowPlayingInfoDuration"] doubleValue];
+                id st = n[@"kMRMediaRemoteNowPlayingInfoTimestamp"];
+                s->_stamp = [st isKindOfClass:[NSDate class]] ? st : nil;
+                double el = s->_elapsed + ((s->_playing && s->_stamp) ? [[NSDate date] timeIntervalSinceDate:s->_stamp] : 0);
+                if (s->_duration > 0) el = MIN(el, s->_duration);
+                s->_frac = s->_duration > 0 ? (CGFloat)(el / s->_duration) : 0;
+                s->_t0.text = TimeStr(el);
+                s->_t1.text = TimeStr(s->_duration);
+                [s applyMediaColors];
+                [s setNeedsLayout];
             });
         }
     }
+}
+
+- (void)applyMediaColors {
+    UIColor *tc = _hasArt ? [UIColor whiteColor] : Ink();
+    UIColor *sc = _hasArt ? [UIColor colorWithWhite:1 alpha:0.78] : [UIColor colorWithWhite:0.2 alpha:0.75];
+    _title.textColor = tc;
+    _artist.textColor = sc;
+    _t0.textColor = _t1.textColor = sc;
+    _prog.backgroundColor = _hasArt ? [UIColor colorWithWhite:1 alpha:0.35] : [UIColor colorWithWhite:0.15 alpha:0.20];
+    _progFill.backgroundColor = tc;
+    for (UIButton *b in @[_prev, _next]) b.tintColor = tc;
+    _play.tintColor = tc;
+    [_prev setImage:Icon(@"backward.fill", 19) forState:UIControlStateNormal];
+    [_next setImage:Icon(@"forward.fill", 19) forState:UIControlStateNormal];
+    [_play setImage:Icon(_playing ? @"pause.fill" : @"play.fill", 23) forState:UIControlStateNormal];
 }
 
 #pragma mark действия
@@ -546,26 +736,47 @@ static void RemoveFromSystem(SCCNote *n) {
     if (g == _dragLP) {
         if (!_editing) return NO;
         CGPoint p = [g locationInView:self];
-        if (!_handle.hidden && CGRectContainsPoint(CGRectInset(_handle.frame, -10, -10), p)) return NO;
+        if (_handle.alpha > 0.5 && CGRectContainsPoint(CGRectInset(_handle.frame, -10, -10), p)) return NO;
         if (CGRectContainsPoint(CGRectInset(_minus.frame, -8, -8), p)) return NO;
         return YES;
     }
     if (_editing) return NO;
     if ([g isKindOfClass:[UIPanGestureRecognizer class]]) {
         CGPoint v = [(UIPanGestureRecognizer *)g velocityInView:self];
-        return fabs(v.x) > fabs(v.y);
+        return [self isVertical] ? (fabs(v.y) > fabs(v.x)) : (fabs(v.x) > fabs(v.y));
     }
     return YES;
+}
+
+- (int)groupIndexAt:(CGPoint)p {
+    for (int i = 0; i < (int)_gc.count; i++)
+        if (CGRectContainsPoint(CGRectInset(_gc[i].frame, -8, -8), p)) return i;
+    return -1;
+}
+
+- (void)haptic {
+    id hv = [Prefs() objectForKey:@"haptics"];
+    if (!hv || [hv boolValue]) {
+        UIImpactFeedbackGenerator *fb = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight];
+        [fb impactOccurred];
+    }
 }
 
 - (void)tapped:(UITapGestureRecognizer *)g {
     NSString *k = self.kind;
     if ([k isEqual:@"m"]) return;
     if ([k isEqual:@"s"]) { [self setValueFromPoint:[g locationInView:self]]; return; }
-    id hv = [Prefs() objectForKey:@"haptics"];
-    if (!hv || [hv boolValue]) {
-        UIImpactFeedbackGenerator *fb = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight];
-        [fb impactOccurred];
+    [self haptic];
+    if ([k isEqual:@"g"]) {
+        int idx = [self groupIndexAt:[g locationInView:self]];
+        if (idx < 0) return;
+        NSArray *ids = @[@"wifi", @"bluetooth", @"airplane", @"cellular"];
+        NSString *gid = ids[idx];
+        if ([gid isEqual:@"cellular"]) { OpenTarget(Cat()[gid][@"o"]); [self.host dismissCC]; return; }
+        TileToggle(gid);
+        [self refresh];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ [self refresh]; });
+        return;
     }
     NSString *o = self.info[@"o"];
     if (o) { OpenTarget(o); [self.host dismissCC]; return; }
@@ -577,17 +788,41 @@ static void RemoveFromSystem(SCCNote *n) {
 - (void)longOpen:(UILongPressGestureRecognizer *)g {
     if (g.state != UIGestureRecognizerStateBegan) return;
     NSString *p = self.info[@"p"] ?: self.info[@"o"];
+    if ([self.kind isEqual:@"g"]) {
+        int idx = [self groupIndexAt:[g locationInView:self]];
+        NSArray *ids = @[@"wifi", @"bluetooth", @"airplane", @"cellular"];
+        if (idx >= 0) p = Cat()[ids[idx]][@"p"] ?: Cat()[ids[idx]][@"o"];
+    }
     OpenTarget(p);
     [self.host dismissCC];
 }
 
-- (void)slide:(UIPanGestureRecognizer *)g { [self setValueFromPoint:[g locationInView:self]]; }
+- (void)slide:(UIPanGestureRecognizer *)g {
+    if (g.state == UIGestureRecognizerStateBegan) _interacting = YES;
+    [self setValueFromPoint:[g locationInView:self]];
+    if (g.state == UIGestureRecognizerStateEnded || g.state == UIGestureRecognizerStateCancelled || g.state == UIGestureRecognizerStateFailed)
+        _interacting = NO;
+}
 
 - (void)setValueFromPoint:(CGPoint)p {
-    float v = MAX(0, MIN(1, p.x / self.bounds.size.width));
+    float v;
+    if ([self isVertical]) {
+        CGRect tr = [self trackRect];
+        v = (CGRectGetMaxY(tr) - p.y) / tr.size.height;
+    } else {
+        v = p.x / self.bounds.size.width;
+    }
+    v = MAX(0, MIN(1, v));
     _val = v;
     if ([_tid isEqual:@"brightness"]) SetBrightness(v); else SetVolume(v);
     [self setNeedsLayout];
+}
+
+- (void)compTapped {
+    [self haptic];
+    TileToggle([_tid isEqual:@"brightness"] ? @"dark" : @"mute");
+    [self refresh];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ [self refresh]; });
 }
 
 - (void)prevTapped { if (MRSend) MRSend(5, nil); [self performSelector:@selector(refresh) withObject:nil afterDelay:0.4]; }
@@ -821,14 +1056,14 @@ static BOOL Fits(BOOL occ[][4], int r, int c, int w, int h) {
                 fr = CGRectMake(x + (tw - sq) / 2, y + (th - sq) / 2, sq, sq);
             }
             t.slot = fr;
-            if (t != self->_dragging) t.frame = fr;
+            if (t != self->_dragging) { t.frame = fr; if (anim) [t layoutIfNeeded]; }
         }
         CGFloat endY = mr * (ch + vg);
         self->_add.frame = CGRectMake(m, endY, W - 2 * m, 44);
         self->_scroll.contentSize = CGSizeMake(W, endY + 44 + 40);
     };
     if (anim) {
-        [UIView animateWithDuration:0.5 delay:0 usingSpringWithDamping:0.78 initialSpringVelocity:0.4
+        [UIView animateWithDuration:0.62 delay:0 usingSpringWithDamping:0.9 initialSpringVelocity:0.15
                             options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction
                          animations:apply completion:nil];
     } else {
@@ -1416,6 +1651,8 @@ static void SCCPrefsCB(CFNotificationCenterRef c, void *obs, CFStringRef n, cons
 
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)g shouldReceiveTouch:(UITouch *)t {
     _lastTouch = CACurrentMediaTime();
+    static int n = 0;
+    if (n++ < 10) SCCLog(@"strip: touch received");
     return !_open && SCCIsEnabled();
 }
 

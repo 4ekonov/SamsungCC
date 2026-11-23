@@ -6,6 +6,7 @@ extern "C" {
 BOOL SCCIsEnabled(void);
 void SCCNotifInsert(id request, id master);
 void SCCNotifRemove(id request);
+void SCCLog(NSString *msg);
 #ifdef __cplusplus
 }
 #endif

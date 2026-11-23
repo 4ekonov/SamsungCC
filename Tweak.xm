@@ -1,6 +1,8 @@
 #import "SCC.h"
 #import <objc/runtime.h>
 #import <objc/message.h>
+#include <string.h>
+#include <strings.h>
 
 @interface CCUIModularControlCenterOverlayViewController : UIViewController
 @end
@@ -15,7 +17,79 @@ static BOOL SCCDeviceUnlocked(void) {
     return !((BOOL (*)(id, SEL))objc_msgSend)(m, sl);
 }
 
-// --- запуск: создать окно с жестами ---
+// ---------------------------------------------------------------
+// Полное отключение стоковых жестов пункта управления и шторки
+// ---------------------------------------------------------------
+static NSHashTable *gKilled;
+static const void *kKilledKey = &kKilledKey;
+
+static BOOL NameHas(const char *n, const char *s) { return n && s && strcasestr(n, s) != NULL; }
+
+static void SCCConsider(UIGestureRecognizer *g, id target, SEL action) {
+    if (!g || !target || !action) return;
+    const char *cn = object_getClassName(target);
+    const char *an = sel_getName(action);
+    if (!cn || !an) return;
+
+    BOOL cc = NameHas(cn, "ControlCenter") || NameHas(cn, "CCUI");
+    BOOL cs = NameHas(cn, "CoverSheet") || NameHas(cn, "DashBoard") || NameHas(cn, "NotificationCenter");
+    BOOL sg = NameHas(cn, "SystemGesture");
+    if (!(cc || cs || sg)) return;
+
+    BOOL kill = NO;
+    if (cc) kill = NameHas(an, "present") || (NameHas(an, "show") && NameHas(an, "control"));
+    if (cs) kill = NameHas(an, "present") || (NameHas(an, "show") && (NameHas(an, "cover") || NameHas(an, "notif")));
+    kill = kill && SCCIsEnabled();
+
+    SCCLog([NSString stringWithFormat:@"gesture %s target=%s action=%s kill=%d", object_getClassName(g), cn, an, kill]);
+
+    if (kill) {
+        objc_setAssociatedObject(g, kKilledKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        if (!gKilled) gKilled = [NSHashTable weakObjectsHashTable];
+        [gKilled addObject:g];
+        g.enabled = NO;
+    }
+}
+
+%hook UIGestureRecognizer
+- (id)initWithTarget:(id)t action:(SEL)a {
+    id r = %orig;
+    if (r) SCCConsider(r, t, a);
+    return r;
+}
+- (void)addTarget:(id)t action:(SEL)a {
+    %orig;
+    SCCConsider(self, t, a);
+}
+- (void)setEnabled:(BOOL)e {
+    if (e && objc_getAssociatedObject(self, kKilledKey) && SCCIsEnabled()) e = NO;
+    %orig(e);
+}
+%end
+
+// для диагностики: какие системные жесты регистрируются
+%hook SBSystemGestureManager
+- (void)addGestureRecognizer:(id)g withType:(unsigned long long)t {
+    SCCLog([NSString stringWithFormat:@"systemGesture type=%llu class=%s", t, object_getClassName(g)]);
+    %orig;
+}
+%end
+
+static void SCCPrefsChanged(CFNotificationCenterRef c, void *o, CFStringRef n, const void *obj, CFDictionaryRef i) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        BOOL en = SCCIsEnabled();
+        for (UIGestureRecognizer *g in gKilled.allObjects) [g setEnabled:!en];
+    });
+}
+
+%ctor {
+    CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, SCCPrefsChanged,
+        CFSTR("com.samsungcc.tweak/prefschanged"), NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
+}
+
+// ---------------------------------------------------------------
+// Запуск: создать окно с нашими жестами
+// ---------------------------------------------------------------
 %hook SpringBoard
 - (void)applicationDidFinishLaunching:(id)app {
     %orig;
@@ -23,7 +97,9 @@ static BOOL SCCDeviceUnlocked(void) {
 }
 %end
 
-// --- системный пункт управления -> наша шторка (быстрые настройки) ---
+// ---------------------------------------------------------------
+// Запасные перехваты: если стоковый ЦУ / шторка всё же попытаются открыться
+// ---------------------------------------------------------------
 %hook SBControlCenterController
 - (void)presentAnimated:(BOOL)a {
     if (SCCIsEnabled()) { [[SCCManager shared] openPage:1 animated:YES]; return; }
@@ -42,7 +118,6 @@ static BOOL SCCDeviceUnlocked(void) {
 }
 %end
 
-// --- системная шторка уведомлений -> наша (только на разблокированном экране, сразу после касания верха) ---
 %hook SBCoverSheetPresentationManager
 - (void)setCoverSheetPresented:(BOOL)p animated:(BOOL)a withCompletion:(id)c {
     if (p && SCCIsEnabled() && SCCDeviceUnlocked() && [[SCCManager shared] topTouchRecent]) {
@@ -54,7 +129,9 @@ static BOOL SCCDeviceUnlocked(void) {
 }
 %end
 
-// --- сбор уведомлений для нашей шторки ---
+// ---------------------------------------------------------------
+// Сбор уведомлений для нашей шторки
+// ---------------------------------------------------------------
 %hook NCNotificationMasterList
 - (void)insertNotificationRequest:(id)r { %orig; SCCNotifInsert(r, self); }
 - (void)modifyNotificationRequest:(id)r { %orig; SCCNotifInsert(r, self); }

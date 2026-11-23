@@ -14,7 +14,7 @@
 
 - (void)resetLayout {
     NSUserDefaults *d = [[NSUserDefaults alloc] initWithSuiteName:@"com.samsungcc.tweak"];
-    [d removeObjectForKey:@"SCC.layout.v1"];
+    [d removeObjectForKey:@"SCC.layout.v2"];
     [d synchronize];
     CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(),
         CFSTR("com.samsungcc.tweak/reset"), NULL, NULL, YES);
