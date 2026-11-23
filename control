@@ -1,0 +1,9 @@
+Package: com.samsungcc.tweak
+Name: SamsungCC (One UI 9 Control Center)
+Version: 1.0.0
+Architecture: iphoneos-arm
+Description: Control Center in the style of Samsung One UI 9 with edit mode (move / resize / add / remove tiles)
+Maintainer: you
+Author: you
+Section: Tweaks
+Depends: mobilesubstrate, preferenceloader, firmware (>= 15.0)
