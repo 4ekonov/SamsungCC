@@ -6,7 +6,7 @@ include $(THEOS)/makefiles/common.mk
 BUNDLE_NAME = SamsungCCPrefs
 SamsungCCPrefs_FILES = SCCRootListController.m
 SamsungCCPrefs_FRAMEWORKS = UIKit
-SamsungCCPrefs_PRIVATE_FRAMEWORKS = Preferences
+SamsungCCPrefs_LDFLAGS = -undefined dynamic_lookup
 SamsungCCPrefs_INSTALL_PATH = /Library/PreferenceBundles
 SamsungCCPrefs_CFLAGS = -fobjc-arc
 
