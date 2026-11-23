@@ -1,8 +1,14 @@
 #import <UIKit/UIKit.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 BOOL SCCIsEnabled(void);
 void SCCNotifInsert(id request, id master);
 void SCCNotifRemove(id request);
+#ifdef __cplusplus
+}
+#endif
 
 /// Шторка (две страницы: 0 = уведомления, 1 = быстрые настройки)
 @interface SCCView : UIView
