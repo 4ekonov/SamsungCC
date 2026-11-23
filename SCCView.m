@@ -622,13 +622,14 @@ static BOOL Fits(BOOL occ[][4], int r, int c, int w, int h) {
     SCCTile *t = (SCCTile *)g.view;
     CGPoint p = [g locationInView:_scroll];
     switch (g.state) {
-        case UIGestureRecognizerStateBegan:
+        case UIGestureRecognizerStateBegan: {
             _dragging = t;
             [_scroll bringSubviewToFront:t];
             [t.layer removeAnimationForKey:@"wiggle"];
             [UIView animateWithDuration:0.15 animations:^{ t.transform = CGAffineTransformMakeScale(1.06, 1.06); t.alpha = 0.9; }];
             _scroll.scrollEnabled = NO;
             break;
+        }
         case UIGestureRecognizerStateChanged: {
             t.center = p;
             // автоскролл у краёв
