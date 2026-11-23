@@ -600,7 +600,7 @@ static void RemoveFromSystem(SCCNote *n) {
 
 static void SCCResetCB(CFNotificationCenterRef c, void *obs, CFStringRef n, const void *o, CFDictionaryRef i) {
     SCCView *v = (__bridge SCCView *)obs;
-    dispatch_async(dispatch_get_main_queue(), ^{ [v performSelector:NSSelectorFromString(@"loadTiles")]; });
+    dispatch_async(dispatch_get_main_queue(), ^{ ((void (*)(id, SEL))objc_msgSend)(v, NSSelectorFromString(@"loadTiles")); });
 }
 
 @interface SCCView () <UIGestureRecognizerDelegate, UIScrollViewDelegate>
@@ -1312,7 +1312,7 @@ static BOOL Fits(BOOL occ[][4], int r, int c, int w, int h) {
 @end
 
 static void SCCPrefsCB(CFNotificationCenterRef c, void *obs, CFStringRef n, const void *o, CFDictionaryRef i) {
-    dispatch_async(dispatch_get_main_queue(), ^{ [[SCCManager shared] performSelector:NSSelectorFromString(@"applyEnabled")]; });
+    dispatch_async(dispatch_get_main_queue(), ^{ ((void (*)(id, SEL))objc_msgSend)([SCCManager shared], NSSelectorFromString(@"applyEnabled")); });
 }
 
 @interface SCCManager () <UIGestureRecognizerDelegate>
